@@ -1,6 +1,12 @@
 spring:
   application:
     name: tao-ai-code-mother-backend
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://localhost:3306/ai-code-mother
+    username: root
+    password: root
+
 server:
   port: 8123
   servlet:
@@ -11,7 +17,6 @@ springdoc:
     - group: 'default'
       paths-to-match: '/**'
       packages-to-scan: com.tao.taoaicodemother.controller
-# knife4j
 knife4j:
   enable: true
   setting:
