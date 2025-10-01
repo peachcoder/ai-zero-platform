@@ -54,7 +54,7 @@ import { type MenuProps, message } from 'ant-design-vue'
 import { useLoginUserStore } from '@/stores/loginUser.ts'
 import { LogoutOutlined } from '@ant-design/icons-vue'
 import { userLogout } from '@/api/userController.ts'
-import { HomeOutlined, UserOutlined, GithubOutlined } from '@ant-design/icons-vue'
+import { HomeOutlined, UserOutlined, CodeOutlined } from '@ant-design/icons-vue'
 
 //获取登录用户状态
 const loginUserStore = useLoginUserStore()
@@ -83,7 +83,7 @@ const originItems = [
   },
   {
     key: 'others',
-    icon: () => h(GithubOutlined), // 使用仓库相关图标
+    icon: () => h(CodeOutlined), // 使用仓库相关图标
     label: h('a', { href: 'https://gitee.com/ztao-dev', target: '_blank' }, '桃李仓库'),
     title: '桃李仓库',
   },
