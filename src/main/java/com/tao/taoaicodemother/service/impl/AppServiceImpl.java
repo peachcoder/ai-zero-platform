@@ -2,20 +2,25 @@ package com.tao.taoaicodemother.service.impl;
 
 import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.collection.CollUtil;
+import cn.hutool.core.util.StrUtil;
 import com.mybatisflex.core.query.QueryWrapper;
 import com.mybatisflex.spring.service.impl.ServiceImpl;
+import com.tao.taoaicodemother.core.AiCodeGeneratorFacade;
 import com.tao.taoaicodemother.exception.BusinessException;
 import com.tao.taoaicodemother.exception.ErrorCode;
+import com.tao.taoaicodemother.exception.ThrowUtils;
 import com.tao.taoaicodemother.mapper.AppMapper;
 import com.tao.taoaicodemother.model.dto.app.AppQueryRequest;
 import com.tao.taoaicodemother.model.entity.App;
 import com.tao.taoaicodemother.model.entity.User;
+import com.tao.taoaicodemother.model.enums.CodeGenTypeEnum;
 import com.tao.taoaicodemother.model.vo.AppVO;
 import com.tao.taoaicodemother.model.vo.UserVO;
 import com.tao.taoaicodemother.service.AppService;
 import com.tao.taoaicodemother.service.UserService;
 import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
+import reactor.core.publisher.Flux;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -33,6 +38,40 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
 
     @Resource
     private UserService userService;
+
+    @Resource
+    private AiCodeGeneratorFacade aiCodeGeneratorFacade;
+
+    /**
+     * 通过对话生成应用代码
+     *
+     * @param appId     应用id
+     * @param message   提示词
+     * @param loginUser 登录用户
+     * @return 生成的代码
+     */
+    @Override
+    public Flux<String> chatToGenCode(Long appId, String message, User loginUser) {
+        //1.参数校验
+        ThrowUtils.throwIf(appId == null || appId <= 0, ErrorCode.PARAMS_ERROR, "应用 ID 错误");
+        ThrowUtils.throwIf(StrUtil.isBlank(message), ErrorCode.PARAMS_ERROR, "提示词不能为空");
+        //2.查询应用信息
+        App app = this.getById(appId);
+        ThrowUtils.throwIf(app == null, ErrorCode.NOT_FOUND_ERROR, "应用不存在");
+        //3.根据校验，仅本人可以和自己的应用进行对话
+        if (!app.getUserId().equals(loginUser.getId())) {
+            throw new BusinessException(ErrorCode.NO_AUTH_ERROR, "无权限访问该应用");
+        }
+        //4.获取应用代码生成类型
+        String codeGenType = app.getCodeGenType();
+        CodeGenTypeEnum codeGenTypeEnum = CodeGenTypeEnum.getEnumByValue(codeGenType);
+        if (codeGenTypeEnum == null) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "代码生成类型错误");
+        }
+
+        //5.调用AI生成代码
+        return aiCodeGeneratorFacade.generateAndSaveCodeStream(message, codeGenTypeEnum, appId);
+    }
 
     @Override
     public AppVO getAppVO(App app) {
