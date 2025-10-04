@@ -8,7 +8,7 @@ import com.mybatisflex.spring.service.impl.ServiceImpl;
 import com.tao.taoaicodemother.exception.BusinessException;
 import com.tao.taoaicodemother.exception.ErrorCode;
 import com.tao.taoaicodemother.mapper.UserMapper;
-import com.tao.taoaicodemother.model.dto.UserQueryRequest;
+import com.tao.taoaicodemother.model.dto.user.UserQueryRequest;
 import com.tao.taoaicodemother.model.entity.User;
 import com.tao.taoaicodemother.model.enums.UserRoleEnum;
 import com.tao.taoaicodemother.model.vo.LoginUserVO;
