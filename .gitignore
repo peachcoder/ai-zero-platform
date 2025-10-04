@@ -2,7 +2,7 @@
 
 application-local.yml
 
-temp
+tmp
 
 HELP.md
 target/
