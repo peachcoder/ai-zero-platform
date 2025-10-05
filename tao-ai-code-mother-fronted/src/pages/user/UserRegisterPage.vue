@@ -38,9 +38,9 @@
 
 <script setup lang="ts">
 import { useRouter } from 'vue-router'
+import { userRegister } from '@/api/userController.ts'
 import { message } from 'ant-design-vue'
 import { reactive } from 'vue'
-import { userRegister } from '@/api/userController.ts'
 
 const router = useRouter()
 
@@ -85,8 +85,10 @@ const handleSubmit = async (values: API.UserRegisterRequest) => {
 
 <style scoped>
 #userRegisterPage {
-  max-width: 360px;
-  margin: 0 auto;
+  background: white;
+  max-width: 720px;
+  padding: 24px;
+  margin: 24px auto;
 }
 
 .title {

@@ -54,7 +54,7 @@ import { type MenuProps, message } from 'ant-design-vue'
 import { useLoginUserStore } from '@/stores/loginUser.ts'
 import { LogoutOutlined } from '@ant-design/icons-vue'
 import { userLogout } from '@/api/userController.ts'
-import { HomeOutlined, UserOutlined, CodeOutlined } from '@ant-design/icons-vue'
+import { HomeOutlined, UserOutlined, CodeOutlined, BuildOutlined } from '@ant-design/icons-vue'
 
 //获取登录用户状态
 const loginUserStore = useLoginUserStore()
@@ -80,6 +80,12 @@ const originItems = [
     icon: () => h(UserOutlined),
     label: '用户管理',
     title: '用户管理',
+  },
+  {
+    key: '/admin/appManage',
+    icon: () => h(BuildOutlined),
+    label: '应用管理',
+    title: '应用管理',
   },
   {
     key: 'others',
