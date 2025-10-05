@@ -16,16 +16,20 @@ import com.tao.taoaicodemother.mapper.AppMapper;
 import com.tao.taoaicodemother.model.dto.app.AppQueryRequest;
 import com.tao.taoaicodemother.model.entity.App;
 import com.tao.taoaicodemother.model.entity.User;
+import com.tao.taoaicodemother.model.enums.ChatHistoryMessageTypeEnum;
 import com.tao.taoaicodemother.model.enums.CodeGenTypeEnum;
 import com.tao.taoaicodemother.model.vo.AppVO;
 import com.tao.taoaicodemother.model.vo.UserVO;
 import com.tao.taoaicodemother.service.AppService;
+import com.tao.taoaicodemother.service.ChatHistoryService;
 import com.tao.taoaicodemother.service.UserService;
 import jakarta.annotation.Resource;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 
 import java.io.File;
+import java.io.Serializable;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -39,6 +43,7 @@ import java.util.stream.Collectors;
  * @author <a href="https://gitee.com/ztao-dev">程序员阿涛</a>
  */
 @Service
+@Slf4j
 public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppService {
 
     @Resource
@@ -46,6 +51,9 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
 
     @Resource
     private AiCodeGeneratorFacade aiCodeGeneratorFacade;
+
+    @Resource
+    private ChatHistoryService chatHistoryService;
 
     /**
      * 通过对话生成应用代码
@@ -73,9 +81,25 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
         if (codeGenTypeEnum == null) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "代码生成类型错误");
         }
-
-        //5.调用AI生成代码
-        return aiCodeGeneratorFacade.generateAndSaveCodeStream(message, codeGenTypeEnum, appId);
+        //5.在调用AI前，先保存用户信息到数据库中
+        chatHistoryService.addChatMessage(appId, message, ChatHistoryMessageTypeEnum.USER.getValue(), loginUser.getId());
+        //6.调用 AI 生成代码（流式）
+        Flux<String> contentFlux = aiCodeGeneratorFacade.generateAndSaveCodeStream(message, codeGenTypeEnum, appId);
+        //7.收集 AI 响应的内容，并且完成后保存记录到对话历史中
+        StringBuilder aiResponseBuilder = new StringBuilder();
+        return contentFlux.map(chunk -> {
+            //实时收集AI响应内容
+            aiResponseBuilder.append(chunk);
+            return chunk;
+        }).doOnComplete(() -> {
+            //流式返回完成后， 保存 AI 消息到对话历史中
+            String aiResponse = aiResponseBuilder.toString();
+            chatHistoryService.addChatMessage(appId, aiResponse, ChatHistoryMessageTypeEnum.AI.getValue(), loginUser.getId());
+        }).doOnError(error -> {
+            //如果 AI 回复失败，也需要保存记录到数据库中
+            String errorMessage = "AI 回复失败：" + error.getMessage();
+            chatHistoryService.addChatMessage(appId, errorMessage, ChatHistoryMessageTypeEnum.AI.getValue(), loginUser.getId());
+        });
     }
 
     @Override
@@ -163,7 +187,7 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
         //4.检查是否已有deployKey
         String deployKey = app.getDeployKey();
         //如果没有，则生成6位deployKey（字母 + 数字）
-        if(StrUtil.isBlank(deployKey)){
+        if (StrUtil.isBlank(deployKey)) {
             deployKey = RandomUtil.randomString(6);
         }
         //5.获取代码生成类型，获取原始代码生成路径（应用访问目录）
@@ -179,7 +203,7 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
         String deployDirPath = AppConstant.CODE_DEPLOY_ROOT_DIR + File.separator + deployKey;
         try {
             FileUtil.copyContent(sourceDir, new File(deployDirPath), true);
-        }catch (Exception e){
+        } catch (Exception e) {
             throw new BusinessException(ErrorCode.SYSTEM_ERROR, "应用部署失败：" + e.getMessage());
         }
         //8.更新数据库
@@ -191,5 +215,30 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
         ThrowUtils.throwIf(!updateResult, ErrorCode.OPERATION_ERROR, "更新应用部署信息失败");
         //9.返回可访问的URL地址
         return String.format("%s/%s", AppConstant.CODE_DEPLOY_HOST, deployKey);
+    }
+
+    /**
+     * 删除应用，关联删除对话历史
+     *
+     * @param id 应用id
+     * @return 是否成功
+     */
+    @Override
+    public boolean removeById(Serializable id) {
+        if (id == null) {
+            return false;
+        }
+        long appId = Long.parseLong(id.toString());
+        if (appId <= 0) {
+            return false;
+        }
+        //先删除关联的对话历史
+        try {
+            chatHistoryService.deleteByAppId(appId);
+        } catch (Exception e) {
+            log.error("删除应用关联的对话历史失败：{}", e.getMessage());
+        }
+        //删除应用
+        return super.removeById(id);
     }
 }
